@@ -163,7 +163,12 @@ class Runner:
 
     async def cb_answer(self, chat_id, uid, cb_id, kind, code, qi, oi):
         s = self.store.sessions.get(uid)
-        if not s or s.get("code") != code:
+        if kind in ("fin", "fin2", "quit", "quit2", "backq"):
+            if not s:
+                await self.tg.answer_cb(cb_id, "شما آزمون فعالی ندارید.")
+                return
+            code = s.get("code")
+        elif not s or s.get("code") != code:
             await self.tg.answer_cb(cb_id, "این آزمون دیگر فعال نیست.")
             return
         exam = self.store.exams.get(code)

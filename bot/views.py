@@ -142,6 +142,8 @@ def main_menu_kb(is_teacher_hint: bool = True) -> list:
         [{"text": "📝 ساخت آزمون جدید", "callback_data": "wiz:new"}],
         [{"text": "📋 آزمون‌های من", "callback_data": "exm:list"},
          {"text": "🎯 شرکت در آزمون", "callback_data": "join:ask"}],
+        [{"text": "🌐 آزمون‌های عمومی", "callback_data": "pub:list"},
+         {"text": "📖 راهنما", "callback_data": "help:show"}],
     ]
     return kb
 

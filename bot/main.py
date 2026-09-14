@@ -199,6 +199,10 @@ class Bot:
                     qi = int(parts[3]) if len(parts) > 3 and parts[3].lstrip("-").isdigit() else 0
                     oi = int(parts[4]) if len(parts) > 4 and parts[4].lstrip("-").isdigit() else -1
                     await self.runner.cb_answer(chat_id, msg_id, uid, cb_id, kind, code, qi, oi)
+                elif len(parts) == 2 and parts[1] in ("fin", "fin2", "quit", "quit2", "backq"):
+                    await self.runner.cb_answer(chat_id, msg_id, uid, cb_id, parts[1], "", 0, -1)
+                else:
+                    await self.tg.answer_cb(cb_id)
             elif parts[0] in ("wiz", "exm", "exs"):
                 await self.wizard.handle_cb(chat_id, msg_id, uid, data)
             else:
