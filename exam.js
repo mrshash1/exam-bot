@@ -101,6 +101,7 @@ async function load() {
   $("brand-bot").textContent = "@" + botUser;
   $("foot-bot").textContent = "@" + botUser;
   $("foot-bot").href = "https://t.me/" + botUser;
+  show("scr-intro");
   renderIntro();
 }
 
