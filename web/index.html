@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1420">
+<title>ربات آزمون آنلاین</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🎓 <b>ربات آزمون آنلاین</b></div>
+
+  <div class="card">
+    <h1>آزمون‌ساز هوشمند تلگرام</h1>
+    <p class="mut" style="margin-top:8px; line-height:2">
+      این سایت میزبان حالت «اپ / سایت» ربات آزمون است. دبیران آزمون را در ربات می‌سازند و
+      دانش‌آموزان با لینک، داخل تلگرام (اپ) یا در مرورگر با <b>تایمر متحرک زنده</b> آزمون می‌دهند.
+    </p>
+    <a class="btn" style="margin-top:14px" href="https://t.me/mykonkuriexam2bot" id="botlink">🤖 ورود به ربات تلگرام</a>
+  </div>
+
+  <div class="card">
+    <h2>🌐 آزمون‌های عمومی فعال</h2>
+    <div id="pub-list" class="mut" style="margin-top:10px">در حال دریافت…</div>
+  </div>
+
+  <div class="card">
+    <h2>📖 راهنمای سریع</h2>
+    <p class="mut" style="margin-top:8px; line-height:2.2">
+      ✍️ <b>ساخت آزمون:</b> در ربات، «ساخت آزمون جدید» ← نام ← ارسال سوالات ← انتشار.<br>
+      🎯 <b>شرکت در آزمون:</b> لینک دبیر را باز کن یا کد آزمون را در ربات بفرست.<br>
+      📱 <b>حالت اپ:</b> دکمه‌ی «حالت اپ» صفحه آزمون را داخل خود تلگرام باز می‌کند.<br>
+      🌐 <b>حالت سایت:</b> همین لینک در هر مرورگری اجرا می‌شود.<br>
+      🏁 <b>ثبت نتیجه:</b> در پایان، نتیجه خودکار به ربات ارسال و نمره با نمره‌ی منفی محاسبه می‌شود.
+    </p>
+  </div>
+
+  <div class="foot">GitHub Pages · امن: کلید پاسخ‌ها هرگز در مرورگر باز نمی‌شود</div>
+</div>
+
+<script>
+(async function () {
+  try {
+    document.getElementById("botlink").href = "https://t.me/mykonkuriexam2bot";
+    const r = await fetch("exams/index.json", { cache: "no-store" });
+    const data = await r.json();
+    const box = document.getElementById("pub-list");
+    const items = (data && data.exams) || [];
+    if (!items.length) {
+      box.textContent = "فعلاً آزمون عمومی فعالی وجود ندارد. آزمون‌های با لینک از طریق خود لینک قابل دسترسی‌اند.";
+      return;
+    }
+    box.innerHTML = "";
+    items.forEach((e) => {
+      const a = document.createElement("a");
+      a.className = "btn sec";
+      a.style.marginTop = "8px";
+      a.href = "exam.html?e=" + encodeURIComponent(e.code);
+      a.textContent = "📝 " + (e.title || e.code) + " — " + (e.teacher || "") + " (" + e.count + " سوال)";
+      box.appendChild(a);
+    });
+  } catch (e) {
+    document.getElementById("pub-list").textContent = "خطا در دریافت لیست.";
+  }
+})();
+</script>
+</body>
+</html>

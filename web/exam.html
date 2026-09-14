@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0f1420">
+<title>آزمون آنلاین</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div class="wrap" id="app">
+
+  <!-- loading -->
+  <div id="scr-loading" class="center" style="padding-top:60px">
+    <div class="spin"></div>
+    <div class="mut">در حال دریافت آزمون…</div>
+  </div>
+
+  <!-- error -->
+  <div id="scr-error" class="hidden">
+    <div class="card center">
+      <div style="font-size:44px">😕</div>
+      <h2 id="err-title">آزمون پیدا نشد</h2>
+      <p class="mut" id="err-msg" style="margin-top:8px">کد یا لینک را از دبیر خود چک کنید.</p>
+      <a class="btn sec" style="margin-top:14px" id="err-botlink" href="#">رفتن به ربات</a>
+    </div>
+  </div>
+
+  <!-- intro -->
+  <div id="scr-intro" class="hidden">
+    <div class="brand">🎓 آزمون آنلاین <b id="brand-bot"></b></div>
+    <div class="card">
+      <h1 id="in-title">—</h1>
+      <div class="mut" style="margin-top:4px" id="in-teacher">—</div>
+      <div class="info">
+        <div><span>تعداد سوالات</span><b id="in-count">—</b></div>
+        <div><span>مدت آزمون</span><b id="in-dur">—</b></div>
+        <div><span>نمره منفی</span><b id="in-neg">—</b></div>
+        <div><span>مهلت پاسخ‌دهی</span><b id="in-window">—</b></div>
+      </div>
+      <div id="in-banner" class="banner hidden"></div>
+      <label>نام و نام خانوادگی *</label>
+      <input type="text" id="in-name" placeholder="مثلاً: علی محمدی" maxlength="60">
+      <label>شماره دانش‌آموزی / کد کلاس (اختیاری)</label>
+      <input type="text" id="in-sid" placeholder="اختیاری" maxlength="30">
+      <button class="btn" id="in-start" style="margin-top:16px">شروع آزمون ▶</button>
+      <div class="small mut center" style="margin-top:10px">
+        با شروع آزمون، تایمر فعال می‌شود و با پایان آن، پاسخ‌ها به‌صورت خودکار ثبت می‌شوند.
+      </div>
+    </div>
+  </div>
+
+  <!-- exam -->
+  <div id="scr-exam" class="hidden">
+    <div class="head">
+      <div class="line1">
+        <div class="timer" id="q-timer">--:--</div>
+        <div class="mut" id="q-progress">سوال ۱ از ۱</div>
+      </div>
+      <div class="progressbar"><i id="q-bar" style="width:0%"></i></div>
+    </div>
+
+    <div class="card">
+      <div class="qtext" id="q-text">—</div>
+      <div class="opts" id="q-opts"></div>
+      <div class="answerbox hidden" id="q-openbox">
+        <input type="text" id="q-open" placeholder="پاسخ خود را بنویسید…" maxlength="250">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="navgrid" id="q-navgrid"></div>
+      <div class="row2">
+        <button class="btn sec" id="q-prev">→ سوال قبلی</button>
+        <button class="btn" id="q-next">سوال بعدی ←</button>
+      </div>
+      <button class="btn ok" id="q-finish" style="margin-top:10px">🏁 پایان آزمون و ثبت پاسخ‌ها</button>
+    </div>
+  </div>
+
+  <!-- sending (mini app) -->
+  <div id="scr-sending" class="hidden">
+    <div class="card center" style="padding-top:50px; padding-bottom:50px">
+      <div class="spin"></div>
+      <h2>در حال ارسال نتیجه…</h2>
+      <p class="mut" style="margin-top:6px">به‌زودی کارت نمره در چت ربات نمایش داده می‌شود.</p>
+    </div>
+  </div>
+
+  <!-- done (browser mode) -->
+  <div id="scr-done" class="hidden">
+    <div class="card center">
+      <div style="font-size:44px">✅</div>
+      <h2>پاسخ‌های شما آماده ارسال است</h2>
+      <p class="mut" style="margin-top:6px">
+        برای ثبت نتیجه، کد زیر را کپی کنید و <b>در چت ربات ارسال کنید</b> تا نمره‌تان محاسبه و ثبت شود.
+      </p>
+      <div class="codebox" id="dn-code" style="margin-top:12px"></div>
+      <button class="btn" id="dn-copy" style="margin-top:12px">📋 کپی کد نتیجه</button>
+      <a class="btn ok" id="dn-bot" href="#" style="margin-top:10px">🤖 رفتن به ربات برای ثبت نتیجه</a>
+      <div class="banner" id="dn-note" style="text-align:right">
+        💡 نکته: اگر آزمون را داخل تلگرام (حالت اپ) باز کرده باشید، نتیجه به‌صورت خودکار ارسال می‌شود و نیازی به کد نیست.
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    قدرت‌گرفته از ربات آزمون · <a id="foot-bot" href="#">@bot</a>
+  </div>
+</div>
+
+<!-- confirm modal -->
+<div class="modal hidden" id="modal">
+  <div class="box">
+    <h2 id="m-title">پایان آزمون؟</h2>
+    <p class="mut" id="m-msg">—</p>
+    <div class="row2">
+      <button class="btn sec" id="m-no">ادامه آزمون</button>
+      <button class="btn danger" id="m-yes">ثبت و پایان</button>
+    </div>
+  </div>
+</div>
+
+<script src="exam.js"></script>
+</body>
+</html>
