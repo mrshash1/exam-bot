@@ -220,9 +220,12 @@ class Bot:
 
     async def poll_loop(self):
         t0 = time.time()
+        last_beat = 0.0
+        conflict_since = None
         while True:
             try:
                 updates = await self.tg.poll()
+                conflict_since = None
                 for up in updates:
                     try:
                         if up.get("message"):
@@ -232,15 +235,35 @@ class Bot:
                     except Exception as e:
                         print("[update] error:", repr(e))
             except TGConflict as e:
-                print("[poll] another instance is polling -> exiting quietly:", e)
-                await self.shutdown(0)
-                return
+                # Another instance is polling. Wait for it to go away (e.g. a
+                # cancelled job's zombie) before giving up.
+                if conflict_since is None:
+                    conflict_since = time.time()
+                    print("[poll] conflict (another instance polling) -> retrying:", e)
+                if time.time() - conflict_since > 600:
+                    print("[poll] conflict persists >10min -> exiting quietly")
+                    await self.shutdown(0)
+                    return
+                await asyncio.sleep(20)
+                continue
             except TGError as e:
                 print("[poll] tg error:", e)
                 await asyncio.sleep(3)
             except Exception as e:
                 print("[poll] unexpected:", repr(e))
                 await asyncio.sleep(2)
+
+            # daily-ish heartbeat commit keeps the repo active (GitHub disables
+            # cron schedules on repos with no activity for 60 days)
+            if time.time() - last_beat > 6 * 3600:
+                last_beat = time.time()
+                try:
+                    await self.gh.put_json("data/heartbeat.json",
+                                           {"ts": int(time.time()),
+                                            "bot": self.tg.bot_username},
+                                           message="heartbeat")
+                except Exception as e:
+                    print("[poll] heartbeat failed:", e)
 
             if time.time() - t0 > config.SELF_RESTART_AFTER:
                 print("[poll] self-restart triggered")
