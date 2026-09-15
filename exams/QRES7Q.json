@@ -1,0 +1,255 @@
+{
+ "code": "QRES7Q",
+ "title": "آزمون qb",
+ "teacher_name": "user1349043014",
+ "created": 1789447646,
+ "duration": 60,
+ "negative": "third",
+ "attempts": 1,
+ "notify": true,
+ "access": "link",
+ "modes": {
+  "text": true,
+  "app": true,
+  "web": true
+ },
+ "window": {
+  "start": null,
+  "end": null
+ },
+ "questions": [
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cea0-8b3ab053.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8ceb8-8b7bd4cd.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8ced1-ea9a7a45.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8ceea-b82ab08a.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cf55-55845487.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cf6a-45672120.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cf8a-d3f0a9f5.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cfb2-555d8a61.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cfc4-f23dab00.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8cfce-5b715ff2.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d07e-d177e202.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d094-3d3eb5ce.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d0a6-4fea0807.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d0b4-a46721aa.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d0c1-ffff55d8.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d0cc-439372a8.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d0ec-dacfa44e.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d100-377b161a.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d109-740fd2b1.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d199-ad771b6a.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d1aa-5cf04866.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d1ba-add7d550.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d1cd-5bdede07.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d1de-9e42478a.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d1ed-50599639.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d202-e0116012.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d212-fd44845b.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d228-cda8982b.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d288-d1f53261.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d294-7493a091.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d2a0-42f3a77e.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d2b1-074d4e5e.jpg",
+   "n_opts": 4
+  },
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/QRES7Q/6aa8d2c5-1939e3bf.jpg",
+   "n_opts": 4
+  }
+ ],
+ "status": "active",
+ "bot_username": "mykonkuriexam2bot"
+}
