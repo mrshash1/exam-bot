@@ -23,6 +23,9 @@ INDEX_FILE = "exams/index.json"  # public list of public exams
 VAULT_DIR = "data/vault"         # encrypted answer keys + results -> data/vault/<code>.json
 SESSIONS_FILE = "data/sessions.json"  # encrypted in-progress text-mode sessions
 WIZARDS_FILE = "data/wizards.json"    # encrypted teacher wizard states
+PHOTOS_DIR = "photos"            # public question images -> photos/<code>/<name>.jpg
+MAX_PHOTO_BYTES = 8 * 1024 * 1024     # 8 MB per question image
+TIMER_EDIT_EVERY = 15            # seconds between live-timer message edits (text mode)
 
 # --- Defaults ---
 DEFAULT_DURATION = 60            # minutes

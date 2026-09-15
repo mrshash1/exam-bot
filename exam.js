@@ -230,7 +230,7 @@ function countAnswered() {
 function tick() {
   const left = deadline - Date.now() / 1000;
   const el = $("q-timer");
-  el.textContent = fmt(left);
+  el.textContent = "⏱ " + fmt(left);
   el.classList.toggle("warn", left <= 300 && left > 60);
   el.classList.toggle("crit", left <= 60);
   if (left <= 0) {
@@ -265,28 +265,36 @@ function renderQuestion(i) {
   $("q-progress").textContent = "سوال " + (cur + 1) + " از " + qs2.length +
     " | پاسخ‌داده: " + countAnswered();
   $("q-bar").style.width = (countAnswered() / qs2.length * 100) + "%";
-  $("q-timer").textContent = fmt(left);
+  $("q-timer").textContent = "⏱ " + fmt(left);
 
   $("q-text").innerHTML = esc(q.t);
+
+  // question image (photo question)
+  const imgWrap = $("q-img");
+  if (q.img) {
+    imgWrap.classList.remove("hidden");
+    const im = $("q-img-el");
+    if (im.getAttribute("src") !== q.img) im.src = q.img;
+  } else {
+    imgWrap.classList.add("hidden");
+    $("q-img-el").removeAttribute("src");
+  }
 
   const optsEl = $("q-opts");
   const openEl = $("q-openbox");
   optsEl.innerHTML = "";
   if (q.o && q.o.length) {
+    renderTextOptions(optsEl, q, qs2);
+  } else if (q.n_opts) {
+    // options are inside the photo: letter-only buttons
     openEl.classList.add("hidden");
-    q.o.forEach((opt, oi) => {
+    for (let oi = 0; oi < q.n_opts; oi++) {
       const d = document.createElement("div");
-      d.className = "opt" + (answers[cur] === oi ? " sel" : "");
-      d.innerHTML = "<b>" + LETTERS[oi] + "</b><span>" + esc(opt) + "</span>";
-      d.onclick = () => {
-        answers[cur] = oi;
-        saveState();
-        renderNav();
-        optsEl.querySelectorAll(".opt").forEach((x, j) => x.classList.toggle("sel", answers[cur] === j));
-        setTimeout(() => { if (cur < qs2.length - 1) gotoQ(cur + 1); }, 220);
-      };
+      d.className = "opt onlyletter" + (answers[cur] === oi ? " sel" : "");
+      d.innerHTML = "<b>" + LETTERS[oi] + "</b>";
+      d.onclick = () => pickOpt(oi, qs2, optsEl);
       optsEl.appendChild(d);
-    });
+    }
   } else {
     openEl.classList.remove("hidden");
     const inp = $("q-open");
@@ -299,6 +307,26 @@ function renderQuestion(i) {
     };
   }
   renderNav();
+}
+
+function pickOpt(oi, qs2, optsEl) {
+  answers[cur] = oi;
+  saveState();
+  renderNav();
+  optsEl.querySelectorAll(".opt").forEach((x, j) => x.classList.toggle("sel", answers[cur] === j));
+  setTimeout(() => { if (cur < qs2.length - 1) gotoQ(cur + 1); }, 220);
+}
+
+function renderTextOptions(optsEl, q, qs2) {
+  const openEl = $("q-openbox");
+  openEl.classList.add("hidden");
+  q.o.forEach((opt, oi) => {
+    const d = document.createElement("div");
+    d.className = "opt" + (answers[cur] === oi ? " sel" : "");
+    d.innerHTML = "<b>" + LETTERS[oi] + "</b><span>" + esc(opt) + "</span>";
+    d.onclick = () => pickOpt(oi, qs2, optsEl);
+    optsEl.appendChild(d);
+  });
 }
 
 function gotoQ(i) {

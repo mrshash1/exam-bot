@@ -118,6 +118,16 @@ class TG:
         except TGError:
             pass
 
+    async def send_photo(self, chat_id: int, photo: str, caption: str = "", kb=None):
+        """Send a photo by public URL or file_id (caption <= 1024 chars, HTML)."""
+        params = {"chat_id": chat_id, "photo": photo}
+        if caption:
+            params["caption"] = caption[:1024]
+            params["parse_mode"] = "HTML"
+        if kb is not None:
+            params["reply_markup"] = {"inline_keyboard": kb}
+        return await self.api("sendPhoto", **params)
+
     async def send_document(self, chat_id: int, data: bytes, filename: str, caption: str = ""):
         form = aiohttp.FormData()
         form.add_field("chat_id", str(chat_id))

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Exam runner: text-mode sessions with live timer + result submissions (web/mini-app codes)."""
+"""Exam runner: text-mode sessions with LIVE ticking timer + photo questions + result submissions."""
 import asyncio
 import json
 import time
@@ -8,7 +8,7 @@ import config
 import crypto
 import scoring
 import views
-from tg import esc
+from tg import TGError, esc
 
 
 class Runner:
@@ -102,11 +102,46 @@ class Runner:
             f"📝 {esc(exam.get('title', ''))}\n"
             f"❓ {nq} سوال | ⏱ {views.mmss(exam.get('duration', 60) * 60)} زمان\n"
             f"➖ نمره منفی: {esc(config.NEGATIVE_LABELS.get(exam.get('negative'), str(exam.get('negative'))))}\n\n"
-            f"⏰ <b>زمان تحویل: {views.fa_ts(s['deadline'])}</b> — اگر وقت تمام شود، آزمون به‌طور خودکار پایان می‌یابد.",
+            f"⏰ <b>زمان تحویل: {views.fa_ts(s['deadline'])}</b> — اگر وقت تمام شود، آزمون به‌طور خودکار پایان می‌یابد.\n"
+            f"⏳ تایمر زنده در پیام بعدی هر ۱۵ ثانیه به‌روز می‌شود.",
         )
+        try:
+            tm = await self.tg.send(chat_id, self._timer_text(s, exam))
+            s["tmsg"] = tm.get("message_id")
+            self.store.touch_sessions()
+        except Exception as e:
+            print("[runner] timer msg failed:", e)
         await self.send_q(chat_id, uid, 0)
 
     # ================================================================= rendering
+
+    def _timer_text(self, s: dict, exam: dict) -> str:
+        left = s["deadline"] - int(time.time())
+        nq = len(exam.get("questions", []))
+        answered = len([v for v in s.get("answers", {}).values() if v not in (None, "", -1)])
+        icon = "🚨" if left <= 60 else ("⏰" if left <= 300 else "⏳")
+        return (f"{icon} <b>زمان باقی‌مانده: {views.mmss(left)}</b>\n"
+                f"📝 سوال: {min(s.get('qi', 0) + 1, nq) if nq else 0}/{nq} | پاسخ‌داده: {answered}")
+
+    async def _edit_timer(self, uid):
+        """Edit the sticky live-timer message with the current remaining time."""
+        s = self.store.sessions.get(uid)
+        if not s:
+            return
+        mid = s.get("tmsg")
+        if not mid:
+            return
+        exam = self.store.exams.get(s["code"])
+        if not exam:
+            return
+        try:
+            await self.tg.edit(uid, mid, self._timer_text(s, exam))
+        except TGError as e:
+            if "not found" in str(e).lower() or "message to edit" in str(e).lower():
+                s["tmsg"] = None
+                self.store.touch_sessions()
+        except Exception as e:
+            print("[runner] timer edit failed:", e)
 
     def render_q(self, exam: dict, s: dict, i: int) -> tuple[str, list]:
         qs = exam["questions"]
@@ -115,31 +150,33 @@ class Runner:
         q = qs[i]
         left = s["deadline"] - int(time.time())
         answered = len([k for k, v in s["answers"].items() if v not in (None, "", -1)])
+        has_img = bool(q.get("img"))
         text = (f"⏳ <b>زمان باقی‌مانده: {views.mmss(left)}</b>\n"
                 f"📊 سوال {i + 1} از {nq} | پاسخ‌داده: {answered}\n"
                 f"━━━━━━━━━━━━━━━━\n"
                 f"{esc(q['t'])}")
         code = exam["code"]
         kb = []
-        if q.get("o"):
+        has_text_opts = bool(q.get("o"))
+        n_opts = int(q.get("n_opts") or 0)
+        if has_text_opts or n_opts:
             letters = ["الف", "ب", "ج", "د", "ه", "و", "ز", "ح", "ط", "ی"]
+            count = len(q["o"]) if has_text_opts else n_opts
             row = []
-            for oi, opt in enumerate(q["o"]):
-                row.append({"text": f"{letters[oi] if oi < len(letters) else oi + 1}",
-                            "callback_data": f"exa:ans:{code}:{i}:{oi}"})
+            for oi in range(count):
+                label = letters[oi] if oi < len(letters) else str(oi + 1)
+                row.append({"text": label, "callback_data": f"exa:ans:{code}:{i}:{oi}"})
                 if len(row) == 2:
                     kb.append(row)
                     row = []
             if row:
                 kb.append(row)
-            kb.append([{"text": "⏭ رد کردن", "callback_data": f"exa:skip:{code}:{i}"},
-                       {"text": "⏮ سوال قبل", "callback_data": f"exa:prev:{code}:{i}"},
-                       {"text": "🏁 پایان", "callback_data": "exa:fin"}])
         else:
             text += "\n\n✍️ <b>پاسخ خود را تایپ و ارسال کن:</b>"
-            kb.append([{"text": "⏭ رد کردن", "callback_data": f"exa:skip:{code}:{i}"},
-                       {"text": "⏮ سوال قبل", "callback_data": f"exa:prev:{code}:{i}"},
-                       {"text": "🏁 پایان", "callback_data": "exa:fin"}])
+        kb.append([{"text": "⏱ زمان باقی‌مانده", "callback_data": f"exa:time:{code}"}])
+        kb.append([{"text": "⏭ رد کردن", "callback_data": f"exa:skip:{code}:{i}"},
+                   {"text": "⏮ سوال قبل", "callback_data": f"exa:prev:{code}:{i}"},
+                   {"text": "🏁 پایان", "callback_data": "exa:fin"}])
         return text, kb
 
     async def send_q(self, chat_id, uid, i: int):
@@ -157,6 +194,21 @@ class Runner:
                                 [{"text": "⏮ بازگشت به سوال آخر", "callback_data": f"exa:prev:{s['code']}:{nq - 1}"}]])
             return
         text, kb = self.render_q(exam, s, i)
+        q = exam["questions"][max(0, min(i, nq - 1))]
+        if q.get("img"):
+            photo = self.store.file_id_for(exam["code"], q["img"]) or (config.PAGES_BASE + "/" + q["img"])
+            try:
+                if len(text) <= 950:
+                    await self.tg.send_photo(chat_id, photo, caption=text, kb=kb)
+                else:
+                    await self.tg.send_photo(chat_id, photo)
+                    await self.tg.send(chat_id, text, kb)
+                return
+            except Exception as e:
+                print("[runner] sendPhoto failed:", e)
+                await self.tg.send(chat_id,
+                                   f"🖼 عکس سوال: {config.PAGES_BASE + '/' + q['img']}\n\n" + text, kb)
+                return
         await self.tg.send(chat_id, text, kb)
 
     # ================================================================= session handlers
@@ -231,6 +283,9 @@ class Runner:
                 t.cancel()
             await self.tg.answer_cb(cb_id)
             await self.tg.send(chat_id, "🚪 از آزمون انصراف داده شد.")
+        elif kind == "time":
+            left = s["deadline"] - int(time.time())
+            await self.tg.answer_cb(cb_id, f"⏳ {views.mmss(left)} از آزمون باقی مانده", alert=True)
         elif kind == "start":
             await self.tg.answer_cb(cb_id)
             await self.start_text(chat_id, uid, code, "", "")
@@ -273,27 +328,40 @@ class Runner:
         self.tasks[uid] = asyncio.create_task(self._timer(uid))
 
     async def _timer(self, uid):
+        """Live exam clock: edits the sticky timer message every TIMER_EDIT_EVERY
+        seconds, fires 5min/1min warnings, auto-finishes at the deadline."""
         try:
             s = self.store.sessions.get(uid)
             if not s:
                 return
             deadline = s["deadline"]
-            for warn_at, msg in ((300, "⏰ <b>۵ دقیقه</b> به پایان آزمون مانده!"),
-                                 (60, "🚨 <b>۱ دقیقه</b> مانده!")):
-                wait = (deadline - warn_at) - time.time()
-                if wait > 0:
-                    await asyncio.sleep(min(wait, 7200))
+            warns = ((300, "⏰ <b>۵ دقیقه</b> به پایان آزمون مانده!"),
+                     (60, "🚨 <b>۱ دقیقه</b> مانده!"))
+            wi = 0
+            last_edit = 0.0
+            while True:
+                t = time.time()
+                left = deadline - t
+                while wi < len(warns) and left <= warns[wi][0]:
+                    warn_at, msg = warns[wi]
                     cur = self.store.sessions.get(uid)
-                    if not cur or cur["deadline"] != deadline:
-                        return
-                    if warn_at not in cur.get("warned", []):
+                    if cur and cur.get("deadline") == deadline and warn_at not in cur.get("warned", []):
                         cur.setdefault("warned", []).append(warn_at)
-                        await self.tg.send(uid, msg)
-            wait = deadline - time.time()
-            if wait > 0:
-                await asyncio.sleep(wait + 1)
+                        self.store.touch_sessions()
+                        try:
+                            await self.tg.send(uid, msg)
+                        except Exception:
+                            pass
+                    wi += 1
+                if left <= 0:
+                    break
+                if t - last_edit >= config.TIMER_EDIT_EVERY:
+                    last_edit = t
+                    await self._edit_timer(uid)
+                await asyncio.sleep(1)
             cur = self.store.sessions.get(uid)
             if cur and cur["deadline"] == deadline:
+                await self._edit_timer(uid)
                 await self.finish(uid, "زمان آزمون تمام شد", auto=True)
         except asyncio.CancelledError:
             pass
@@ -308,6 +376,14 @@ class Runner:
             t.cancel()
         if not s:
             return
+        # close the live-timer message
+        if s.get("tmsg"):
+            try:
+                await self.tg.edit(uid, s["tmsg"],
+                                   f"🏁 <b>آزمون پایان یافت</b> — {esc(reason)}\n"
+                                   f"⏱ مدت استفاده‌شده: {views.mmss(int(time.time() - s['start']))}")
+            except Exception:
+                pass
         exam = self.store.exams.get(s["code"])
         if not exam:
             return

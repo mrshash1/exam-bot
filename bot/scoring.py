@@ -26,6 +26,11 @@ def norm_open(s: str) -> str:
     return s.strip(".؟?!،,؛:«»\"'")
 
 
+def is_mcq(q: dict) -> bool:
+    """MCQ if it has text options OR is an image-question with on-image options."""
+    return bool(q.get("o")) or bool(int(q.get("n_opts") or 0))
+
+
 def score_exam(questions: list, answers: dict, negative) -> dict:
     """questions: [{t,o,a,p}]; answers: {idx_str: opt_idx_or_text}.
 
@@ -42,14 +47,15 @@ def score_exam(questions: list, answers: dict, negative) -> dict:
         if raw is None or raw == "" or raw == -1:
             b += 1
             continue
-        if q["o"]:  # MCQ
+        if is_mcq(q):  # MCQ (text options or image-only options)
+            n_opts = max(len(q.get("o") or []), int(q.get("n_opts") or 0))
             try:
                 aidx = int(raw)
             except (TypeError, ValueError):
                 w += 1
                 gained -= frac * p
                 continue
-            if 0 <= aidx < len(q["o"]) and aidx == q["a"]:
+            if 0 <= aidx < n_opts and aidx == q["a"]:
                 c += 1
                 gained += p
             else:

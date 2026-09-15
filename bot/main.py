@@ -106,6 +106,20 @@ class Bot:
                 await self.tg.send(chat_id, "❌ داده‌ی ارسالی از اپ قابل خواندن نبود؛ دوباره تلاش کن.")
             return
 
+        # ---- teacher wizard: photo questions (photo or image document) ----
+        if uid in self.store.wizards:
+            ph = m.get("photo")
+            if ph:
+                big = ph[-1] if isinstance(ph, list) and ph else {}
+                if await self.wizard.handle_photo(chat_id, uid, big.get("file_id", ""),
+                                                  m.get("caption", ""), big.get("file_size", 0) or 0):
+                    return
+            doc = m.get("document")
+            if doc and str(doc.get("mime_type", "")).startswith("image/"):
+                if await self.wizard.handle_photo(chat_id, uid, doc.get("file_id", ""),
+                                                  m.get("caption", ""), doc.get("file_size", 0) or 0):
+                    return
+
         # ---- commands ----
         if text.startswith("/"):
             cmd = text.split()[0].split("@")[0].lower()

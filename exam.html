@@ -58,14 +58,16 @@
   <div id="scr-exam" class="hidden">
     <div class="head">
       <div class="line1">
-        <div class="timer" id="q-timer">--:--</div>
+        <div class="timer" id="q-timer">⏱ --:--</div>
         <div class="mut" id="q-progress">سوال ۱ از ۱</div>
       </div>
       <div class="progressbar"><i id="q-bar" style="width:0%"></i></div>
+      <div class="small mut" style="margin-top:6px">⏳ تایمر زنده — در هر لحظه زمان باقی‌مانده را می‌بینی</div>
     </div>
 
     <div class="card">
       <div class="qtext" id="q-text">—</div>
+      <div class="qimg hidden" id="q-img"><img id="q-img-el" alt="تصویر سوال" loading="lazy"></div>
       <div class="opts" id="q-opts"></div>
       <div class="answerbox hidden" id="q-openbox">
         <input type="text" id="q-open" placeholder="پاسخ خود را بنویسید…" maxlength="250">

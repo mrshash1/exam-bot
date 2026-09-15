@@ -1,12 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Teacher wizard: create exam (title -> info card -> questions -> publish) + settings."""
+"""Teacher wizard: create exam (title -> info card -> questions -> publish) + settings.
+
+Supports photo questions: teacher sends a photo, then picks the number of
+on-image options and the correct option with two taps (or sends the options
+as text / puts the whole question in the photo caption).
+"""
+import re
 import time
+import uuid
 
 import config
 import parser as qparser
 import views
 from tg import esc
 from views import fa_ts, human_left
+
+LETTERS = ["الف", "ب", "ج", "د", "ه", "و", "ز", "ح", "ط", "ی"]
 
 
 class Wizard:
@@ -34,14 +43,18 @@ class Wizard:
             f"🔗 لینک‌ها (از همین حالا معتبر می‌شوند پس از انتشار):\n"
             f"<code>https://t.me/{bu}?start=exam_{code}</code>\n"
             f"<code>{config.WEB_EXAM_URL.format(code=code)}</code>\n\n"
-            "📨 حالا سوالات را بفرست (متن یا فایل txt). هر بار که بفرستی اضافه می‌شود."
+            f"📨 حالا سوالات را بفرست: <b>متن</b>، فایل <code>txt</code> یا <b>📸 عکس سوال</b>. "
+            f"هر بار که بفرستی اضافه می‌شود.\n"
+            f"📸 در حالت عکس: اگر گزینه‌ها داخل عکس هستند فقط تعدادشان و گزینه‌ی صحیح را با دکمه انتخاب کن."
         )
-        kb = [
+        return text, self.draft_kb(code)
+
+    def draft_kb(self, code="") -> list:
+        return [
             [{"text": "✅ انتشار آزمون", "callback_data": f"wiz:done:{code}"}],
             [{"text": "📋 نمونه قالب سوال", "callback_data": "wiz:sample"}],
             [{"text": "❌ انصراف و حذف پیش‌نویس", "callback_data": "wiz:cancel"}],
         ]
-        return text, kb
 
     # ------------------------------------------------------------------ entry points
 
@@ -129,6 +142,266 @@ class Wizard:
             self.store.touch_wizards()
             await self.show_exam_card(chat_id, exam.get("teacher_id") or uid, code)
 
+    # ------------------------------------------------------------------ photo questions
+
+    def _photo_ctx(self, wiz: dict):
+        """Return (ctx, code) for the current wizard state, or (None, None)."""
+        st = wiz.get("st")
+        if st == "questions":
+            return "draft", (wiz.get("draft") or {}).get("code")
+        if st in ("append_pub", "replace_pub"):
+            return st, wiz.get("code")
+        if st in ("pq_n", "pq_a"):
+            ctx = wiz.get("ctx", "draft")
+            code = (wiz.get("draft") or {}).get("code") if ctx == "draft" else wiz.get("code")
+            return ctx, code
+        return None, None
+
+    async def handle_photo(self, chat_id, uid, file_id, caption, file_size=0) -> bool:
+        """Teacher sent a photo while adding questions. Returns True if handled."""
+        wiz = self.store.wizards.get(uid)
+        if not wiz:
+            return False
+        ctx, code = self._photo_ctx(wiz)
+        if not ctx or not code:
+            return False
+        if file_size and file_size > config.MAX_PHOTO_BYTES:
+            await self.tg.send(chat_id,
+                               f"❌ حجم عکس زیاد است (حداکثر {config.MAX_PHOTO_BYTES // (1024 * 1024)} مگابایت). "
+                               "عکس کوچک‌تر بفرست.")
+            return True
+        try:
+            data = await self.tg.download_file(file_id)
+        except Exception as e:
+            print("[wizard] photo download failed:", e)
+            await self.tg.send(chat_id, "❌ دریافت عکس ناموفق بود. لطفاً دوباره بفرست.")
+            return True
+        ext = "png" if data[:8] == b"\x89PNG\r\n\x1a\n" else "jpg"
+        path = f"{config.PHOTOS_DIR}/{code}/{int(time.time()):x}-{uuid.uuid4().hex[:8]}.{ext}"
+        try:
+            await self.store.gh.put_file(path, data, message=f"photo {code}")
+        except Exception as e:
+            print("[wizard] photo upload failed:", e)
+            await self.tg.send(chat_id, "❌ ذخیره‌ی عکس ناموفق بود. لطفاً دوباره تلاش کن.")
+            return True
+
+        cap = (caption or "").strip()
+        # quick path: the caption itself is a complete question (options + answer)
+        if cap:
+            res = qparser.parse_questions(cap)
+            if not res["errors"] and len(res["questions"]) == 1 and res["questions"][0]["o"]:
+                q = res["questions"][0]
+                q["img"] = path
+                q["file_id"] = file_id
+                await self._commit_photo_question(chat_id, uid, ctx, code, q, auto=True)
+                return True
+
+        wiz.update({"st": "pq_n", "ctx": ctx, "code": code, "img": path,
+                    "file_id": file_id, "caption": cap})
+        wiz.pop("n_opts", None)
+        self.store.touch_wizards()
+        kb = [
+            [{"text": "۲ گزینه", "callback_data": f"wiz:pqn:{code}:2"},
+             {"text": "۳ گزینه", "callback_data": f"wiz:pqn:{code}:3"},
+             {"text": "۴ گزینه", "callback_data": f"wiz:pqn:{code}:4"}],
+            [{"text": "۵ گزینه", "callback_data": f"wiz:pqn:{code}:5"},
+             {"text": "۶ گزینه", "callback_data": f"wiz:pqn:{code}:6"},
+             {"text": "✍️ گزینه‌ها متنی", "callback_data": f"wiz:pqhint:{code}"}],
+            [{"text": "❌ کنسل این عکس", "callback_data": f"wiz:pqcancel:{code}"}],
+        ]
+        await self.tg.send(
+            chat_id,
+            "📸 <b>عکس سوال دریافت و ذخیره شد!</b>\n\n"
+            "حالا بگو <b>تعداد گزینه‌های داخل عکس</b> چند تا است؟ (بیشتر از ۶؟ عددش را تایپ کن)\n\n"
+            "💡 اگر می‌خواهی گزینه‌ها زیر عکس به‌صورت <b>متن</b> نوشته شوند، دکمه‌ی «گزینه‌ها متنی» را بزن و "
+            "گزینه‌ها را مثل نمونه‌ی قالب بفرست.",
+            kb,
+        )
+        return True
+
+    def _answer_kb(self, code: str, n_opts: int) -> list:
+        kb = []
+        row = []
+        for i in range(max(2, min(10, n_opts))):
+            row.append({"text": LETTERS[i], "callback_data": f"wiz:pqa:{code}:{i}"})
+            if len(row) == 4:
+                kb.append(row)
+                row = []
+        if row:
+            kb.append(row)
+        kb.append([{"text": "❌ کنسل این عکس", "callback_data": f"wiz:pqcancel:{code}"}])
+        return kb
+
+    async def photo_pick_n(self, chat_id, msg_id, uid, code, count_s):
+        wiz = self.store.wizards.get(uid)
+        if not wiz or wiz.get("st") != "pq_n" or wiz.get("code") != code:
+            await self.tg.send(chat_id, "❌ این پیام قدیمی است.")
+            return
+        try:
+            n = max(2, min(10, int(count_s)))
+        except ValueError:
+            return
+        wiz["st"] = "pq_a"
+        wiz["n_opts"] = n
+        self.store.touch_wizards()
+        await self.tg.edit(chat_id, msg_id,
+                           f"✅ تعداد گزینه‌ها: <b>{n}</b>\n\nحالا <b>گزینه‌ی صحیح</b> را انتخاب کن:",
+                           self._answer_kb(code, n))
+
+    async def photo_pick_a(self, chat_id, msg_id, uid, code, idx_s):
+        wiz = self.store.wizards.get(uid)
+        if not wiz or wiz.get("st") != "pq_a" or wiz.get("code") != code:
+            await self.tg.send(chat_id, "❌ این پیام قدیمی است.")
+            return
+        try:
+            idx = int(idx_s)
+        except ValueError:
+            return
+        n = int(wiz.get("n_opts") or 4)
+        if not (0 <= idx < n):
+            return
+        q = {
+            "t": wiz.get("caption") or "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+            "o": [], "a": idx, "p": 1,
+            "img": wiz["img"], "file_id": wiz.get("file_id", ""), "n_opts": n,
+        }
+        try:
+            await self.tg.edit(chat_id, msg_id, "⏳ در حال ثبت سوال…")
+        except Exception:
+            pass
+        await self._commit_photo_question(chat_id, uid, wiz.get("ctx", "draft"), code, q)
+
+    async def photo_cancel(self, chat_id, msg_id, uid, code):
+        wiz = self.store.wizards.get(uid)
+        if not wiz or wiz.get("code") != code:
+            await self.tg.send(chat_id, "❌ این پیام قدیمی است.")
+            return
+        self._reset_wiz(wiz)
+        self.store.touch_wizards()
+        await self.tg.edit(chat_id, msg_id,
+                           "❌ عکس کنار گذاشته شد. عکس بعدی یا متن سوال بعدی را بفرست.")
+
+    def _reset_wiz(self, wiz: dict):
+        ctx = wiz.get("ctx", "draft")
+        wiz["st"] = "questions" if ctx == "draft" else ctx
+        for k in ("img", "file_id", "caption", "n_opts"):
+            wiz.pop(k, None)
+
+    async def photo_text(self, chat_id, uid, text):
+        """Text reply while in a photo-question state."""
+        wiz = self.store.wizards.get(uid)
+        if not wiz:
+            return
+        st = wiz.get("st")
+        ctx, code = wiz.get("ctx", "draft"), wiz.get("code")
+
+        def parsed_q(t: str):
+            """Parse as full question; retry with a synthetic stem (photo = question)."""
+            res = qparser.parse_questions(t)
+            if not res["errors"] and len(res["questions"]) == 1 and res["questions"][0]["o"]:
+                return res["questions"][0], False
+            res2 = qparser.parse_questions("1. \u0633\u0648\u0627\u0644\n" + t)
+            if not res2["errors"] and len(res2["questions"]) == 1 and res2["questions"][0]["o"]:
+                return res2["questions"][0], True   # synthetic stem -> prefer caption
+            return None, False
+
+        if st == "pq_n":
+            t = text.strip().translate(str.maketrans("\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9", "0123456789"))
+            q, synthetic = parsed_q(text)
+            if q is not None:
+                if synthetic:
+                    q["t"] = wiz.get("caption") or "\U0001F4F8 \u0628\u0627 \u062f\u0642\u062a \u0628\u0647 \u0639\u06a9\u0633 \u0633\u0648\u0627\u0644 \u0646\u06af\u0627\u0647 \u06a9\u0646 \u0648 \u06af\u0632\u06cc\u0646\u0647\u0654 \u062f\u0631\u0633\u062a \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646."
+                q["img"] = wiz["img"]
+                q["file_id"] = wiz.get("file_id", "")
+                await self._commit_photo_question(chat_id, uid, ctx, code, q)
+                return
+            if t.isdigit() and 2 <= int(t) <= 10:
+                wiz["st"] = "pq_a"
+                wiz["n_opts"] = int(t)
+                self.store.touch_wizards()
+                await self.tg.send(chat_id,
+                                   f"\u2705 \u062a\u0639\u062f\u0627\u062f \u06af\u0632\u06cc\u0646\u0647\u200c\u0647\u0627: <b>{int(t)}</b>\n\n\u062d\u0627\u0644\u0627 <b>\u06af\u0632\u06cc\u0646\u0647\u0654 \u0635\u062d\u06cc\u062d</b> \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646:",
+                                   self._answer_kb(code, int(t)))
+                return
+            await self.tg.send(chat_id,
+                               "\u274c \u0645\u062a\u0648\u062c\u0647 \u0646\u0634\u062f\u0645. \u062a\u0639\u062f\u0627\u062f \u06af\u0632\u06cc\u0646\u0647\u200c\u0647\u0627 \u0631\u0627 \u0628\u0627 \u062f\u06a9\u0645\u0647 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u060c \u06cc\u0627 \u06af\u0632\u06cc\u0646\u0647\u200c\u0647\u0627 \u0631\u0627 \u0628\u0647 \u0635\u0648\u0631\u062a \u0645\u062a\u0646 \u0628\u0641\u0631\u0633\u062a:\n\n"
+                               + qparser.SAMPLE)
+            return
+        if st == "pq_a":
+            q, synthetic = parsed_q(text)
+            if q is not None:
+                if synthetic:
+                    q["t"] = wiz.get("caption") or "\U0001F4F8 \u0628\u0627 \u062f\u0642\u062a \u0628\u0647 \u0639\u06a9\u0633 \u0633\u0648\u0627\u0644 \u0646\u06af\u0627\u0647 \u06a9\u0646 \u0648 \u06af\u0632\u06cc\u0646\u0647\u0654 \u062f\u0631\u0633\u062a \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646."
+                q["img"] = wiz["img"]
+                q["file_id"] = wiz.get("file_id", "")
+                await self._commit_photo_question(chat_id, uid, ctx, code, q)
+                return
+            al = qparser.normalize(text).lower()
+            al = re.sub(r"^\u06af\u0632\u06cc\u0646\u0647\s*", "", al).strip()
+            idx = qparser.LETTER_OPT.get(al)
+            if idx is None and al.isdigit():
+                j = int(al)
+                if 1 <= j <= int(wiz.get("n_opts") or 4):
+                    idx = j - 1
+            if idx is None or idx >= int(wiz.get("n_opts") or 4):
+                await self.tg.send(chat_id,
+                                   "\u274c \u06af\u0632\u06cc\u0646\u0647\u0654 \u0635\u062d\u06cc\u062d \u0631\u0627 \u0628\u0627 \u062f\u06a9\u0645\u0647 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646\u060c \u06cc\u0627 \u0645\u062b\u0644\u0627\u064b \u0628\u0646\u0648\u06cc\u0633 \u00ab\u0628\u00bb \u06cc\u0627 \u00ab2\u00bb.")
+                return
+            q = {
+                "t": wiz.get("caption") or "\U0001F4F8 \u0628\u0627 \u062f\u0642\u062a \u0628\u0647 \u0639\u06a9\u0633 \u0633\u0648\u0627\u0644 \u0646\u06af\u0627\u0647 \u06a9\u0646 \u0648 \u06af\u0632\u06cc\u0646\u0647\u0654 \u062f\u0631\u0633\u062a \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646.",
+                "o": [], "a": idx, "p": 1,
+                "img": wiz["img"], "file_id": wiz.get("file_id", ""),
+                "n_opts": int(wiz.get("n_opts") or 4),
+            }
+            await self._commit_photo_question(chat_id, uid, ctx, code, q)
+
+    async def _commit_photo_question(self, chat_id, uid, ctx, code, q, auto=False):
+        if ctx == "draft":
+            wiz = self.store.wizards.get(uid)
+            draft = (wiz or {}).get("draft") or {}
+            if draft.get("code") != code:
+                await self.tg.send(chat_id, "❌ پیش‌نویس پیدا نشد.")
+                return
+            if len(draft.get("questions", [])) >= config.MAX_QUESTIONS:
+                await self.tg.send(chat_id, f"⚠️ حداکثر {config.MAX_QUESTIONS} سوال مجاز است.")
+                return
+            draft.setdefault("questions", []).append(q)
+            self._reset_wiz(wiz)
+            self.store.touch_wizards()
+            n = len(draft["questions"])
+            await self.tg.send(
+                chat_id,
+                f"✅ <b>سوال عکس‌دار ثبت شد!</b> (مجموع: {n})\n\n"
+                "📩 عکس یا متن سوال بعدی را بفرست، یا «✅ انتشار آزمون» را بزن.",
+                self.draft_kb(code),
+            )
+        else:
+            exam = self.store.exams.get(code)
+            if not exam or exam.get("teacher_id") != uid:
+                await self.tg.send(chat_id, "❌ آزمون پیدا نشد یا دسترسی نداری.")
+                return
+            if len(exam.get("questions", [])) >= config.MAX_QUESTIONS:
+                await self.tg.send(chat_id, f"⚠️ حداکثر {config.MAX_QUESTIONS} سوال مجاز است.")
+                return
+            exam.setdefault("questions", []).append(q)
+            v = self.store.vault.setdefault(
+                code, {"teacher_id": exam.get("teacher_id"), "answers": [], "results": []})
+            v.setdefault("answers", []).append(q["a"])
+            if q.get("img"):
+                v.setdefault("file_ids", {})[q["img"]] = q.get("file_id", "")
+            await self.store.save_exam(code)
+            await self.store.save_vault(code)
+            wiz = self.store.wizards.get(uid)
+            if wiz:
+                self._reset_wiz(wiz)
+                self.store.touch_wizards()
+            n = len(exam["questions"])
+            await self.tg.send(
+                chat_id,
+                f"✅ <b>سوال عکس‌دار به آزمون اضافه شد!</b> (مجموع: {n})\n\n"
+                "📩 عکس یا متن سوال بعدی را بفرست.",
+            )
+
     async def publish(self, chat_id, uid, code):
         wiz = self.store.wizards.get(uid)
         if not wiz or wiz.get("draft", {}).get("code") != code:
@@ -141,10 +414,12 @@ class Wizard:
         exam = dict(draft)
         exam["status"] = "active"
         self.store.exams[code] = exam
+        file_ids = {q["img"]: q.get("file_id", "") for q in exam["questions"] if q.get("img")}
         self.store.vault[code] = {
             "teacher_id": uid,
             "answers": [q["a"] for q in exam["questions"]],
             "results": [],
+            "file_ids": file_ids,
         }
         await self.store.save_exam(code)
         await self.store.save_vault(code)
@@ -352,6 +627,9 @@ class Wizard:
         if not wiz:
             return False
         st = wiz.get("st")
+        if st in ("pq_n", "pq_a"):
+            await self.photo_text(chat_id, uid, text)
+            return True
         if st == "title":
             await self.got_title(chat_id, uid, text, name, username)
             return True
@@ -429,6 +707,24 @@ class Wizard:
                 return True
             if act == "done" and len(parts) >= 3:
                 await self.publish(chat_id, uid, parts[2])
+                return True
+            if act == "pqn" and len(parts) >= 4:
+                await self.photo_pick_n(chat_id, msg_id, uid, parts[2], parts[3])
+                return True
+            if act == "pqa" and len(parts) >= 4:
+                await self.photo_pick_a(chat_id, msg_id, uid, parts[2], parts[3])
+                return True
+            if act == "pqcancel" and len(parts) >= 3:
+                await self.photo_cancel(chat_id, msg_id, uid, parts[2])
+                return True
+            if act == "pqhint" and len(parts) >= 3:
+                await self.tg.send(chat_id,
+                                   "✍️ حالا گزینه‌ها را به صورت متن بفرست (همراه با پاسخ صحیح). مثال:\n\n"
+                                   "<code>الف) گزینه اول\n"
+                                   "ب) گزینه دوم\n"
+                                   "ج) گزینه سوم\n"
+                                   "د) گزینه چهارم\n"
+                                   "پاسخ: ج</code>")
                 return True
         if parts[0] == "exm":
             if parts[1] == "list":

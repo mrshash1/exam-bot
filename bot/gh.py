@@ -127,6 +127,32 @@ class GH:
                 raise GHError(f"PUT {path} -> {status}: {text[:300]}")
             raise GHError(f"PUT {path} failed after {retries} retries")
 
+    async def put_file(self, path: str, data: bytes, message: str = "upload") -> str:
+        """Write a binary file (e.g. question images) with conflict retry."""
+        async with self._lock(path):
+            for attempt in range(4):
+                if path not in self._shas:
+                    await self.get_json(path)
+                sha = self._shas.get(path)
+                body = {
+                    "message": message,
+                    "branch": self.branch,
+                    "content": base64.b64encode(data).decode(),
+                }
+                if sha:
+                    body["sha"] = sha
+                status, text = await self._req("PUT", f"{self.api}/contents/{path}", body)
+                if status in (200, 201):
+                    info = json.loads(text)
+                    self._shas[path] = info.get("content", {}).get("sha")
+                    return self._shas[path]
+                if status == 409 or (status == 422 and "does not match" in text):
+                    await self.get_json(path)
+                    await asyncio.sleep(0.8 + attempt)
+                    continue
+                raise GHError(f"PUT {path} -> {status}: {text[:300]}")
+            raise GHError(f"PUT {path} failed after retries")
+
     async def delete_file(self, path: str, message: str = "delete"):
         async with self._lock(path):
             if path not in self._shas:

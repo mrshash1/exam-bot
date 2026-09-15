@@ -98,9 +98,20 @@ class Store:
 
     def public_exam(self, exam: dict) -> dict:
         pub = {k: v for k, v in exam.items() if k not in ("teacher_id",)}
-        pub["questions"] = [{"t": q["t"], "o": q.get("o", []), "p": q.get("p", 1)}
-                            for q in exam.get("questions", [])]
+        qs = []
+        for q in exam.get("questions", []):
+            pq = {"t": q["t"], "o": q.get("o", []), "p": q.get("p", 1)}
+            if q.get("img"):
+                pq["img"] = config.PAGES_BASE + "/" + q["img"]
+            if not pq["o"] and q.get("n_opts"):
+                pq["n_opts"] = int(q["n_opts"])
+            qs.append(pq)
+        pub["questions"] = qs
         return pub
+
+    def file_id_for(self, code: str, img_path: str):
+        """Telegram file_id of an uploaded question photo (for reliable sendPhoto)."""
+        return ((self.vault.get(code) or {}).get("file_ids") or {}).get(img_path)
 
     async def save_exam(self, code: str):
         exam = self.exams.get(code)
