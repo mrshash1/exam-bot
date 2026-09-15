@@ -214,6 +214,12 @@ class Runner:
     # ================================================================= session handlers
 
     async def cb_answer(self, chat_id, uid, cb_id, kind, code, qi, oi):
+        if kind == "detail":
+            # exa:detail:{code}:{ts}:{uid}  (qi=ts, oi=result owner uid)
+            await self.tg.answer_cb(cb_id)
+            target = oi if isinstance(oi, int) and oi > 0 else uid
+            await self.send_detailed(chat_id, uid, code, int(qi), target)
+            return
         s = self.store.sessions.get(uid)
         if kind in ("fin", "fin2", "quit", "quit2", "backq"):
             if not s:
@@ -395,11 +401,14 @@ class Runner:
             "w": res0["w"], "b": res0["b"], "pct": res0["pct"],
             "ts": int(time.time()), "via": "text",
             "dur": int(time.time() - s["start"]),
+            "ans": {str(k): v for k, v in (s.get("answers") or {}).items()},
         }
         self.store.add_result(s["code"], result)
         await self.store.save_vault(s["code"])
         neg_txt = config.NEGATIVE_LABELS.get(exam.get("negative"), str(exam.get("negative")))
         rank, total_n = self.rank_of(s["code"], uid, result["ts"])
+        detail_kb = [[{"text": "📊 نتایج دقیق (سوال به سوال)",
+                       "callback_data": f"exa:detail:{s['code']}:{result['ts']}:{uid}"}]]
         await self.tg.send(
             uid,
             f"🛑 <b>{esc(reason)}</b>\n\n"
@@ -409,6 +418,7 @@ class Runner:
             f"🎯 نمره: <b>{result['score']}</b> از {result['total']}  (٪{result['pct']})\n"
             f"➖ نمره منفی: {esc(neg_txt)}\n"
             f"🏅 رتبه فعلی: {rank} از {total_n}",
+            detail_kb,
         )
         await self.notify_teacher(exam, result)
 
@@ -487,6 +497,7 @@ class Runner:
             "score": res0["score"], "total": res0["total"], "c": res0["c"],
             "w": res0["w"], "b": res0["b"], "pct": res0["pct"],
             "ts": int(time.time()), "via": via, "dur": dur, "sig": sig,
+            "ans": {str(k): v for k, v in answers.items()},
         }
         self.store.add_result(code, result)
         await self.store.save_vault(code)
@@ -497,6 +508,8 @@ class Runner:
         neg_txt = config.NEGATIVE_LABELS.get(exam.get("negative"), str(exam.get("negative")))
         rank, total_n = self.rank_of(exam["code"], result.get("uid"), result.get("ts"))
         head = "🔁 نتیجه‌ی شما قبلاً ثبت شده است:" if resend else "✅ <b>نتیجه‌ی شما ثبت شد!</b>"
+        kb = [[{"text": "📊 نتایج دقیق (سوال به سوال)",
+                "callback_data": f"exa:detail:{exam['code']}:{result.get('ts')}:{result.get('uid')}"}]]
         await self.tg.send(
             chat_id,
             f"{head}\n"
@@ -507,7 +520,35 @@ class Runner:
             f"➖ نمره منفی: {esc(neg_txt)}\n"
             f"⏱ مدت: {views.mmss(result.get('dur', 0))}\n"
             f"🏅 رتبه فعلی: {rank} از {total_n}",
+            kb,
         )
+
+    async def send_detailed(self, chat_id, uid, code, ts, target_uid=None):
+        """Question-by-question breakdown of one result (owner or teacher only)."""
+        exam = self.store.exams.get(code)
+        if not exam:
+            await self.tg.send(chat_id, "❌ آزمون پیدا نشد.")
+            return
+        target_uid = target_uid if target_uid else uid
+        result = None
+        for r in reversed(self.store.results(code)):
+            if r.get("ts") == ts and r.get("uid") == target_uid:
+                result = r
+                break
+        if not result:
+            await self.tg.send(chat_id, "❌ نتیجه‌ای برای نمایش جزئیات پیدا نشد.")
+            return
+        if uid != target_uid and uid != exam.get("teacher_id"):
+            await self.tg.send(chat_id, "⛔ فقط خود دانش‌آموز یا دبیر می‌تواند این جزئیات را ببیند.")
+            return
+        if not result.get("ans"):
+            await self.tg.send(
+                chat_id,
+                "ℹ️ این نتیجه قبل از به‌روزرسانی ربات ثبت شده و پاسخ سوال‌به‌سوالش ذخیره نشده بود.\n"
+                "از این به بعد برای همه‌ی نتایج جدید، دکمه‌ی «📊 نتایج دقیق» کار می‌کند.",
+            )
+            return
+        await self.tg.send(chat_id, views.detailed_results_text(exam, result))
 
     # ================================================================= public list
 

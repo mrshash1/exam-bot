@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""UI views: exam cards, menus, help text, results table & CSV."""
+"""UI views: exam cards, menus, help text, results table & CSV, detailed per-question results."""
 import time
 from datetime import datetime, timezone, tzinfo
 
 import config
+import scoring
 from tg import esc
 
 try:
@@ -40,6 +41,25 @@ def human_left(seconds: int) -> str:
 
 
 MODE_LABELS = {"text": "✍️ متنی", "app": "📱 اپ (داخل تلگرام)", "web": "🌐 سایت"}
+
+FA_LETTERS = ["الف", "ب", "ج", "د", "ه", "و", "ز", "ح", "ط", "ی"]
+
+
+def fa_num(x) -> str:
+    """Persian-friendly number: 1 -> ۱، 0.33 -> ۰/۳۳"""
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return str(x)
+    if x == int(x):
+        return str(int(x)).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
+    s = ("%.2f" % x).rstrip("0").rstrip(".")
+    return s.translate(str.maketrans("0123456789.", "۰۱۲۳۴۵۶۷۸۹/"))
+
+
+def _trim(s, n: int = 30) -> str:
+    s = " ".join(str(s or "").split())
+    return s if len(s) <= n else s[: n - 1] + "…"
 
 
 def window_line(exam: dict) -> str:
@@ -172,7 +192,9 @@ HELP_TEXT = """ℹ️ <b>راهنمای ربات آزمون</b>
 <b>🎯 برای دانش‌آموز:</b>
 • روی لینک دبیر بزن یا کد آزمون را بفرست. مشخصات آزمون (مدت، تعداد سوال، نمره منفی) را قبل از شروع می‌بینی.
 • در همهٔ حالت‌ها تایمر متحرک داری و در هر لحظه می‌توانی زمان باقی‌مانده را ببینی.
+• 📷 در حالت سایت/اپ، روی عکس سوال بزن تا تمام‌صفحه باز شود؛ با دو انگشت یا دوبار لمس، بزرگش کن تا راحت بخوانی.
 • بعد از پایان، نتیجه داخل چت ثبت و کارت نمره را می‌بینی.
+• 📊 دکمه‌ی «نتایج دقیق» را بزن تا سوال‌به‌سوال ببینی: به هر سوال چه گزینه‌ای زدی، گزینهٔ صحیح کدام بود و کدام‌ها نمره منفی خورد.
 
 <b>⚙️ تنظیمات هر آزمون:</b> مدت، نمره منفی (پیش‌فرض: ۱/۳ کنکوری)، تعداد مجاز شرکت، دسترسی عمومی/با لینک، حالت‌ها، شروع/پایان دستی.
 
@@ -215,3 +237,75 @@ def build_csv(exam: dict, results: list) -> bytes:
                     r.get("dur", ""), r.get("via", ""),
                     datetime.fromtimestamp(r.get("ts", 0), TZ).strftime("%Y-%m-%d %H:%M:%S")])
     return "\ufeff".encode("utf-8") + buf.getvalue().encode("utf-8")
+
+
+def detailed_results_text(exam: dict, result: dict) -> str:
+    """Question-by-question breakdown of a student's own attempt:
+    what they answered vs the correct answer, with per-question marks."""
+    qs = exam.get("questions", [])
+    ans = result.get("ans") or {}
+    neg = exam.get("negative", "none")
+    frac = scoring.neg_frac(neg)
+    lines = [
+        "📊 <b>نتایج دقیق شما</b>",
+        f"📝 آزمون: {esc(exam.get('title', ''))} (کد <code>{exam['code']}</code>)",
+        f"👤 نام: {esc(result.get('name', ''))}",
+        f"🎯 نمره نهایی: <b>{fa_num(result.get('score', 0))}</b> از {fa_num(result.get('total', 0))} (٪{fa_num(result.get('pct', 0))})",
+        f"✅ صحیح: {result.get('c', 0)} | ❌ غلط: {result.get('w', 0)} | ⬜ نزده: {result.get('b', 0)}",
+        "━━━━━━━━━━━━━━━━━━",
+    ]
+    for i, q in enumerate(qs):
+        p = float(q.get("p", 1) or 1)
+        raw = ans.get(str(i), ans.get(i))
+        is_img = bool(q.get("img")) and not q.get("o")
+        tag = "📷 " if is_img else ""
+        stem = _trim(q.get("t", ""), 42)
+        if stem:
+            head = f"<b>{i + 1}.</b> {tag}{esc(stem)}"
+        else:
+            head = f"<b>{i + 1}.</b> {tag}سوال تصویری"
+        if raw is None or raw == "" or raw == -1:
+            lines.append(f"{head}\n      ⬜ <b>بی‌پاسخ</b> — نمره‌ای نگرفتی (نمره منفی هم ندارد)")
+            continue
+        if scoring.is_mcq(q):
+            n_opts = max(len(q.get("o") or []), int(q.get("n_opts") or 0))
+            aidx = None
+            ok = False
+            try:
+                aidx = int(raw)
+                ok = 0 <= aidx < n_opts and aidx == q.get("a")
+            except (TypeError, ValueError):
+                pass
+            ca = int(q.get("a", -1))
+            corr_l = FA_LETTERS[ca] if 0 <= ca < len(FA_LETTERS) else str(ca + 1)
+            your_l = FA_LETTERS[aidx] if aidx is not None and 0 <= aidx < len(FA_LETTERS) else "؟"
+            if ok:
+                extra = ""
+                if q.get("o"):
+                    extra = f" ({esc(_trim(q['o'][aidx], 26))})"
+                lines.append(f"{head}\n      ✅ <b>درست</b> (+{fa_num(p)}) — پاسخ شما: <b>{your_l}</b>{extra}")
+            else:
+                extra = ""
+                if q.get("o") and aidx is not None and 0 <= aidx < len(q["o"]):
+                    extra = f" ({esc(_trim(q['o'][aidx], 26))})"
+                neg_part = f" ({fa_num(-frac * p)})" if frac > 0 else ""
+                lines.append(
+                    f"{head}\n"
+                    f"      ❌ <b>نادرست</b>{neg_part} — پاسخ شما: <b>{your_l}</b>{extra} | "
+                    f"پاسخ صحیح: <b>{corr_l}</b>"
+                )
+        else:  # open (typed) question
+            ok = scoring.norm_open(str(raw)) == scoring.norm_open(str(q.get("a", "")))
+            if ok:
+                lines.append(f"{head}\n      ✅ <b>درست</b> (+{fa_num(p)}) — پاسخ شما: «{esc(_trim(str(raw), 40))}»")
+            else:
+                neg_part = f" ({fa_num(-frac * p)})" if frac > 0 else ""
+                lines.append(
+                    f"{head}\n"
+                    f"      ❌ <b>نادرست</b>{neg_part} — پاسخ شما: «{esc(_trim(str(raw), 40))}» | "
+                    f"پاسخ صحیح: «{esc(_trim(str(q.get('a', '')), 40))}»"
+                )
+    lines.append("━━━━━━━━━━━━━━━━━━")
+    if frac > 0:
+        lines.append("💡 نمره منفی فقط برای پاسخ‌های غلط اعمال شده؛ سوال‌های بی‌پاسخ نمره منفی ندارند.")
+    return "\n".join(lines)

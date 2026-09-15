@@ -67,7 +67,10 @@
 
     <div class="card">
       <div class="qtext" id="q-text">—</div>
-      <div class="qimg hidden" id="q-img"><img id="q-img-el" alt="تصویر سوال" loading="lazy"></div>
+      <div class="qimg hidden" id="q-img">
+        <img id="q-img-el" alt="تصویر سوال" loading="lazy">
+        <div class="zoomtip">🔍 برای دیدن بزرگ و واضح، روی عکس بزنید</div>
+      </div>
       <div class="opts" id="q-opts"></div>
       <div class="answerbox hidden" id="q-openbox">
         <input type="text" id="q-open" placeholder="پاسخ خود را بنویسید…" maxlength="250">
@@ -113,6 +116,15 @@
   <div class="foot">
     قدرت‌گرفته از ربات آزمون · <a id="foot-bot" href="#">@bot</a>
   </div>
+</div>
+
+<!-- image lightbox (fullscreen + zoom) -->
+<div class="lightbox hidden" id="lightbox">
+  <div class="lb-top">
+    <span class="lb-hint">🔍 دو انگشت را باز کن یا دوبار پشت‌سرهم بزن تا بزرگ شود</span>
+    <button class="lb-close" id="lb-close" aria-label="بستن">✕</button>
+  </div>
+  <div class="lb-imgwrap"><img id="lb-img" alt="نمایش بزرگ عکس سوال" draggable="false"></div>
 </div>
 
 <!-- confirm modal -->

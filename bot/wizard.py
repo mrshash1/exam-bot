@@ -548,7 +548,16 @@ class Wizard:
             return
         if action == "results":
             rows = self.store.results(code)
-            await self.tg.send(chat_id, views.results_table(exam, rows))
+            kb = []
+            det = [r for r in sorted(rows, key=lambda r: (-r.get("score", 0), r.get("ts", 0)))
+                   if r.get("ans")][:25]
+            for idx, r in enumerate(det, 1):
+                kb.append([{"text": f"{idx}. {r.get('name', 'بی‌نام')[:22]} — {r.get('score', 0)} از {r.get('total', 0)}",
+                            "callback_data": f"exa:detail:{code}:{r.get('ts')}:{r.get('uid')}"}])
+            await self.tg.send(chat_id, views.results_table(exam, rows), kb if kb else None)
+            if rows and not kb:
+                await self.tg.send(chat_id,
+                                   "ℹ️ جزئیات سوال‌به‌سوال فقط برای نتایجِ بعد از این به‌روزرسانی ثبت می‌شود.")
             return
         if action == "csv":
             rows = self.store.results(code)
