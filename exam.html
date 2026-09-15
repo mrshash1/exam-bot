@@ -2,8 +2,14 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0f1420">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="آزمون">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
 <title>آزمون آنلاین</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,6 +66,7 @@
       <div class="line1">
         <div class="timer" id="q-timer">⏱ --:--</div>
         <div class="mut" id="q-progress">سوال ۱ از ۱</div>
+        <button class="fsbtn" id="fs-btn" type="button">⛶ تمام‌صفحه</button>
       </div>
       <div class="progressbar"><i id="q-bar" style="width:0%"></i></div>
       <div class="small mut" style="margin-top:6px">⏳ تایمر زنده — در هر لحظه زمان باقی‌مانده را می‌بینی</div>

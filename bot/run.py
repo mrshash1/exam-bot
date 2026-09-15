@@ -17,6 +17,10 @@ class Runner:
         self.store = store
         self.tasks: dict[int, asyncio.Task] = {}
         self.pending_join: set[int] = set()
+        # chats where a result card was actually delivered (code, ts, owner) -> chats
+        # lets the real student open "نتایج دقیق" even if the result was first
+        # registered by the teacher forwarding their code
+        self.card_chats: dict[tuple, set] = {}
 
     # ================================================================= join flow
 
@@ -451,6 +455,15 @@ class Runner:
 
     # ================================================================= submissions (web / mini app)
 
+    @staticmethod
+    def student_key(name: str, sid: str) -> str:
+        """Stable identity of the exam taker derived from the RESULT itself
+        (not from whoever forwards the code), so a teacher can submit a
+        student's code and it still counts for that student."""
+        return crypto.short_sig(json.dumps(
+            {"n": scoring.norm_open(name), "s": scoring.norm_open(sid)},
+            ensure_ascii=False))
+
     async def handle_result_payload(self, chat_id, uid, profile_name, username, payload: dict, via: str):
         code = str(payload.get("e", ""))
         exam = self.store.exams.get(code)
@@ -458,6 +471,7 @@ class Runner:
             await self.tg.send(chat_id, "❌ کد آزمون در این نتیجه معتبر نیست.")
             return
         name = str(payload.get("n", "") or profile_name or f"user{uid}")[:80]
+        sid = str(payload.get("s", "") or "")[:40]
         answers = payload.get("a", {})
         if not isinstance(answers, dict):
             await self.tg.send(chat_id, "❌ ساختار نتیجه نامعتبر است.")
@@ -478,22 +492,44 @@ class Runner:
             await self.tg.send(chat_id, "⛔ این آزمون پایان یافته است.")
             return
 
-        sig = crypto.short_sig(json.dumps({"e": code, "u": uid, "a": answers}, sort_keys=True, ensure_ascii=False))
+        # identity: student = the name/id INSIDE the result; result signature is
+        # content-based so resending the same code anywhere is always idempotent
+        skey = self.student_key(name, sid)
+        sig = crypto.short_sig(json.dumps(
+            {"e": code, "k": skey, "a": answers}, sort_keys=True, ensure_ascii=False))
+
+        rows = self.store.results(code)
+        # 1) identical result already stored? -> show the card again, consume nothing
+        for r in rows:
+            if r.get("sig") == sig:
+                await self.send_result_card(chat_id, exam, r, resend=True)
+                return
+
+        # 2) attempts are counted per STUDENT (payload identity); the Telegram uid
+        #    of the sender never blocks someone else's result
         att = exam.get("attempts", 1)
-        used = self.store.attempts_used(code, uid)
+        used_self = sum(1 for r in rows if r.get("uid") == uid)
+        if via == "app":
+            used = sum(1 for r in rows if r.get("uid") == uid or r.get("skey") == skey)
+        else:
+            used = sum(1 for r in rows if r.get("skey") == skey)
         if att and used >= att:
-            # idempotent resend of the same attempt?
-            for r in self.store.results(code):
-                if r.get("uid") == uid and r.get("sig") == sig:
-                    await self.send_result_card(chat_id, exam, r, resend=True)
-                    return
-            await self.tg.send(chat_id,
-                               "🚫 قبلاً در این آزمون شرکت کرده‌ای و دفعات مجاز تکمیل شده است.")
+            owner_uid = next((r.get("uid") for r in rows if r.get("skey") == skey), None)
+            if used_self == 0 and owner_uid != uid:
+                await self.tg.send(
+                    chat_id,
+                    f"🚫 دفعات مجاز «{esc(name)}» در این آزمون قبلاً تکمیل شده (مجاز: {att} بار) "
+                    "و این نتیجه با پاسخ‌های قبلی‌اش متفاوت است؛ ثبت نشد.")
+            else:
+                await self.tg.send(
+                    chat_id,
+                    "🚫 دفعات مجاز شرکت در این آزمون تکمیل شده است.\n"
+                    "💡 اگر همین حالا آزمون را داده‌ای، همان کد نتیجه‌ی قبلی را بفرست تا نتیجه‌ات دوباره نمایش داده شود.")
             return
 
         res0 = scoring.score_exam(exam["questions"], answers, exam.get("negative", "none"))
         result = {
-            "uid": uid, "name": name, "username": username or "",
+            "uid": uid, "name": name, "sid": sid, "skey": skey, "username": username or "",
             "score": res0["score"], "total": res0["total"], "c": res0["c"],
             "w": res0["w"], "b": res0["b"], "pct": res0["pct"],
             "ts": int(time.time()), "via": via, "dur": dur, "sig": sig,
@@ -507,14 +543,17 @@ class Runner:
     async def send_result_card(self, chat_id, exam, result, resend: bool = False):
         neg_txt = config.NEGATIVE_LABELS.get(exam.get("negative"), str(exam.get("negative")))
         rank, total_n = self.rank_of(exam["code"], result.get("uid"), result.get("ts"))
-        head = "🔁 نتیجه‌ی شما قبلاً ثبت شده است:" if resend else "✅ <b>نتیجه‌ی شما ثبت شد!</b>"
+        head = "🔁 <b>این نتیجه قبلاً ثبت شده است:</b>" if resend else "✅ <b>نتیجه ثبت شد!</b>"
+        sid_line = f"🆔 شماره/کد دانش‌آموزی: {esc(result.get('sid', ''))}\n" if result.get("sid") else ""
         kb = [[{"text": "📊 نتایج دقیق (سوال به سوال)",
                 "callback_data": f"exa:detail:{exam['code']}:{result.get('ts')}:{result.get('uid')}"}]]
+        self.card_chats.setdefault((exam["code"], result.get("ts"), result.get("uid")), set()).add(chat_id)
         await self.tg.send(
             chat_id,
             f"{head}\n"
             f"📝 آزمون: {esc(exam.get('title', ''))}\n"
-            f"👤 نام: {esc(result.get('name', ''))}\n"
+            f"👤 نام دانش‌آموز: {esc(result.get('name', ''))}\n"
+            f"{sid_line}"
             f"✅ صحیح: {result['c']} | ❌ غلط: {result['w']} | ⬜ نزده: {result['b']}\n"
             f"🎯 نمره: <b>{result['score']}</b> از {result['total']}  (٪{result['pct']})\n"
             f"➖ نمره منفی: {esc(neg_txt)}\n"
@@ -538,7 +577,8 @@ class Runner:
         if not result:
             await self.tg.send(chat_id, "❌ نتیجه‌ای برای نمایش جزئیات پیدا نشد.")
             return
-        if uid != target_uid and uid != exam.get("teacher_id"):
+        if uid != target_uid and uid != exam.get("teacher_id") and \
+                chat_id not in self.card_chats.get((code, ts, target_uid), set()):
             await self.tg.send(chat_id, "⛔ فقط خود دانش‌آموز یا دبیر می‌تواند این جزئیات را ببیند.")
             return
         if not result.get("ans"):

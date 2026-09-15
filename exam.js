@@ -21,8 +21,54 @@ const LETTERS = ["الف", "ب", "ج", "د", "ه", "و", "ز", "ح", "ط", "ی"]
 /* ---------- Telegram WebApp ---------- */
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 if (tg) {
-  try { tg.ready(); tg.expand(); } catch (e) {}
+  try {
+    tg.ready(); tg.expand();
+    // Bot API 8.0+: run the mini app truly fullscreen (no top bar / URL bar)
+    if (typeof tg.requestFullscreen === "function") { try { tg.requestFullscreen(); } catch (e) {} }
+  } catch (e) {}
 }
+
+/* ---------- fullscreen (browser mode: hide the URL bar) ---------- */
+function tgIsFs() {
+  try { return !!(tg && tg.isFullscreen === true); } catch (e) { return false; }
+}
+function isFs() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || tgIsFs());
+}
+function requestFs() {
+  try {
+    if (tg && typeof tg.requestFullscreen === "function") { tg.requestFullscreen(); return; }
+  } catch (e) {}
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (fn) {
+      const p = fn.call(el, { navigationUI: "hide" });
+      if (p && p.catch) p.catch(() => {});
+    }
+  } catch (e) {}
+}
+function exitFs() {
+  try {
+    if (tg && typeof tg.exitFullscreen === "function") { tg.exitFullscreen(); return; }
+  } catch (e) {}
+  try {
+    const fn = document.exitFullscreen || document.webkitExitFullscreen;
+    if (fn) { const p = fn.call(document); if (p && p.catch) p.catch(() => {}); }
+  } catch (e) {}
+}
+function updateFsBtn() {
+  const b = $("fs-btn");
+  if (!b) return;
+  b.textContent = isFs() ? "✕ خروج از تمام‌صفحه" : "⛶ تمام‌صفحه";
+}
+try {
+  if (tg && typeof tg.onEvent === "function") {
+    tg.onEvent("fullscreenChanged", updateFsBtn);
+  }
+} catch (e) {}
+document.addEventListener("fullscreenchange", updateFsBtn);
+document.addEventListener("webkitfullscreenchange", updateFsBtn);
 
 function show(id) {
   ["scr-loading", "scr-error", "scr-intro", "scr-exam", "scr-sending", "scr-done"]
@@ -188,6 +234,7 @@ function startExam() {
     $("in-name").style.borderColor = "var(--bad)";
     return;
   }
+  requestFs();   // user gesture: open fullscreen so the URL bar disappears
   const savedT0 = parseInt(localStorage.getItem(LS.t0(CODE)) || "0", 10);
   const savedAns = localStorage.getItem(LS.ans(CODE));
   if (savedT0 && savedAns) {
@@ -214,6 +261,7 @@ function restoreSaved() {
 
 function showExam() {
   show("scr-exam");
+  updateFsBtn();
   renderNav();
   renderQuestion(cur);
   if (timerInt) clearInterval(timerInt);
@@ -354,6 +402,8 @@ function autoSubmit() {
   $("modal").classList.add("hidden");
   submit();
 }
+
+$("fs-btn").onclick = () => { if (isFs()) exitFs(); else requestFs(); };
 
 function buildPayload() {
   const name = ($("in-name").value || "").trim();

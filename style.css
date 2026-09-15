@@ -85,6 +85,14 @@ label { display: block; font-size: 13px; color: var(--mut); margin: 12px 2px 6px
 .progressbar { height: 6px; background: var(--card2); border-radius: 99px; margin-top: 8px; overflow: hidden; }
 .progressbar i { display: block; height: 100%; background: var(--pri); border-radius: 99px; transition: width .3s; }
 
+/* fullscreen toggle button */
+.fsbtn {
+  flex: 0 0 auto; border: 1px solid var(--line); background: var(--card2); color: var(--txt);
+  font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 11px;
+  border-radius: 11px; cursor: pointer; white-space: nowrap;
+}
+.fsbtn:active { transform: scale(.96); }
+
 /* question */
 .qtext { font-size: 16.5px; line-height: 1.9; white-space: pre-wrap; }
 .qimg { margin-top: 10px; position: relative; cursor: zoom-in; }
