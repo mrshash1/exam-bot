@@ -45,7 +45,7 @@ class Wizard:
             f"<code>{config.WEB_EXAM_URL.format(code=code)}</code>\n\n"
             f"📨 حالا سوالات را بفرست: <b>متن</b>، فایل <code>txt</code> یا <b>📸 عکس سوال</b>. "
             f"هر بار که بفرستی اضافه می‌شود.\n"
-            f"📸 در حالت عکس: اگر گزینه‌ها داخل عکس هستند فقط تعدادشان و گزینه‌ی صحیح را با دکمه انتخاب کن."
+            f"📸 سوال عکس‌دار: فقط عکس را بفرست (سوال و هر ۴ گزینه داخل عکس)؛ بعدش فقط با یک دکمه بگو کدام گزینه درست است."
         )
         return text, self.draft_kb(code)
 
@@ -73,7 +73,8 @@ class Wizard:
         await self.tg.send(chat_id, (
             "🛠 <b>ساخت آزمون جدید</b>\n\n"
             "1/2 — <b>نام آزمون</b> را بفرست. (مثلاً: <code>آزمون فیزیک فصل ۲</code>)\n\n"
-            "بعد از وارد کردن نام، کارت کامل اطلاعات آزمون را می‌بینی."
+            "بعد از وارد کردن نام، کارت کامل اطلاعات آزمون را می‌بینی.\n"
+            "(اگر پشیمانی، «لغو» بفرست)"
         ))
 
     async def got_title(self, chat_id, uid, text, name, username):
@@ -196,26 +197,16 @@ class Wizard:
                 await self._commit_photo_question(chat_id, uid, ctx, code, q, auto=True)
                 return True
 
-        wiz.update({"st": "pq_n", "ctx": ctx, "code": code, "img": path,
-                    "file_id": file_id, "caption": cap})
-        wiz.pop("n_opts", None)
+        # Questions ALWAYS have 4 options (they are part of the image itself).
+        # No extra questions, no caption needed: straight to "which option is correct?".
+        wiz.update({"st": "pq_a", "ctx": ctx, "code": code, "img": path,
+                    "file_id": file_id, "caption": cap, "n_opts": 4})
         self.store.touch_wizards()
-        kb = [
-            [{"text": "۲ گزینه", "callback_data": f"wiz:pqn:{code}:2"},
-             {"text": "۳ گزینه", "callback_data": f"wiz:pqn:{code}:3"},
-             {"text": "۴ گزینه", "callback_data": f"wiz:pqn:{code}:4"}],
-            [{"text": "۵ گزینه", "callback_data": f"wiz:pqn:{code}:5"},
-             {"text": "۶ گزینه", "callback_data": f"wiz:pqn:{code}:6"},
-             {"text": "✍️ گزینه‌ها متنی", "callback_data": f"wiz:pqhint:{code}"}],
-            [{"text": "❌ کنسل این عکس", "callback_data": f"wiz:pqcancel:{code}"}],
-        ]
         await self.tg.send(
             chat_id,
-            "📸 <b>عکس سوال دریافت و ذخیره شد!</b>\n\n"
-            "حالا بگو <b>تعداد گزینه‌های داخل عکس</b> چند تا است؟ (بیشتر از ۶؟ عددش را تایپ کن)\n\n"
-            "💡 اگر می‌خواهی گزینه‌ها زیر عکس به‌صورت <b>متن</b> نوشته شوند، دکمه‌ی «گزینه‌ها متنی» را بزن و "
-            "گزینه‌ها را مثل نمونه‌ی قالب بفرست.",
-            kb,
+            "📸 <b>عکس سوال ذخیره شد!</b>\n\n"
+            "حالا فقط بگو <b>کدام گزینه درست است؟</b>",
+            self._answer_kb(code, 4),
         )
         return True
 
@@ -626,6 +617,13 @@ class Wizard:
         wiz = self.store.wizards.get(uid)
         if not wiz:
             return False
+        # universal escape hatch: never let the teacher get stuck in a wizard state
+        t = (text or "").strip()
+        if t in ("/start", "/menu", "/cancel", "لغو", "انصراف", "منو", "🔙 منوی اصلی"):
+            self.store.wizards.pop(uid, None)
+            self.store.touch_wizards()
+            await self.tg.send(chat_id, "✅ لغو شد. بازگشت به منوی اصلی:", views.main_menu_kb())
+            return True
         st = wiz.get("st")
         if st in ("pq_n", "pq_a"):
             await self.photo_text(chat_id, uid, text)
@@ -649,7 +647,7 @@ class Wizard:
                 try:
                     minutes = max(1, min(600, int(text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")))))
                 except ValueError:
-                    await self.tg.send(chat_id, "❌ عدد نامعتبر. فقط عدد دقیقه بفرست. مثلاً <code>45</code>")
+                    await self.tg.send(chat_id, "❌ عدد نامعتبر. فقط عدد دقیقه بفرست. مثلاً <code>45</code>\n(یا «لغو» بفرست تا بی‌خیال شوی)")
                     return True
                 exam["duration"] = minutes
                 await self.store.save_exam(code)
@@ -665,7 +663,7 @@ class Wizard:
                     val = float(text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")))
                     val = max(0.0, min(1.0, val))
                 except ValueError:
-                    await self.tg.send(chat_id, "❌ عدد نامعتبر. مثلاً <code>0.33</code>")
+                    await self.tg.send(chat_id, "❌ عدد نامعتبر. مثلاً <code>0.33</code>\n(یا «لغو» بفرست تا بی‌خیال شوی)")
                     return True
                 exam["negative"] = round(val, 3)
                 await self.store.save_exam(code)

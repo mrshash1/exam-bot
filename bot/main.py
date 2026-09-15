@@ -66,6 +66,11 @@ class Bot:
     # ------------------------------------------------------------------ messages
 
     async def cmd_start(self, chat_id, uid, payload, name=""):
+        # clear transient input states (duration / custom negative) that could trap typing
+        w = self.store.wizards.get(uid)
+        if w and w.get("st") in ("duration", "negcustom"):
+            self.store.wizards.pop(uid, None)
+            self.store.touch_wizards()
         if payload.startswith("exam_"):
             code = payload[5:].strip().upper()
             await self.runner.view_exam(chat_id, uid, code)
@@ -248,6 +253,15 @@ class Bot:
                             await self.handle_callback(up["callback_query"])
                     except Exception as e:
                         print("[update] error:", repr(e))
+                        # never leave the user in silence: tell them something went wrong
+                        try:
+                            mm = up.get("message") or ((up.get("callback_query") or {}).get("message") or {})
+                            cid = (mm.get("chat") or {}).get("id")
+                            if cid:
+                                await self.tg.send(cid, "⚠️ یک خطای غیرمنتظره پیش آمد؛ لطفاً دوباره تلاش کن. "
+                                                       "اگر تکرار شد /start را بزن.")
+                        except Exception:
+                            pass
             except TGConflict as e:
                 # Another instance is polling. Wait for it to go away (e.g. a
                 # cancelled job's zombie) before giving up.
