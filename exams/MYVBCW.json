@@ -1,0 +1,31 @@
+{
+ "code": "MYVBCW",
+ "title": "..",
+ "teacher_name": "༒︎ᴹᴿ𝑵𝒊𝒎𝒐𝒐𝒐𝒐𝒐",
+ "created": 1789457049,
+ "duration": 60,
+ "negative": "third",
+ "attempts": 1,
+ "notify": true,
+ "access": "link",
+ "modes": {
+  "text": true,
+  "app": true,
+  "web": true
+ },
+ "window": {
+  "start": null,
+  "end": null
+ },
+ "questions": [
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/MYVBCW/6aa8f2ab-b42a6d8e.jpg",
+   "n_opts": 4
+  }
+ ],
+ "status": "active",
+ "bot_username": "mykonkuriexam2bot"
+}
