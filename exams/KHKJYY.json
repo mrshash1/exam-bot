@@ -1,0 +1,34 @@
+{
+ "code": "KHKJYY",
+ "title": "ازمون زیست qb",
+ "teacher_name": "user1349043014",
+ "created": 1789440640,
+ "duration": 60,
+ "negative": "third",
+ "attempts": 1,
+ "notify": true,
+ "access": "link",
+ "modes": {
+  "text": true,
+  "app": true,
+  "web": true
+ },
+ "window": {
+  "start": null,
+  "end": null
+ },
+ "questions": [
+  {
+   "t": "کدام سیاره به خورشید نزدیک تر است؟",
+   "o": [
+    "زمین",
+    "عطارد",
+    "زحل",
+    "مریخ"
+   ],
+   "p": 1
+  }
+ ],
+ "status": "active",
+ "bot_username": "mykonkuriexam2bot"
+}
