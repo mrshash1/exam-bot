@@ -1,0 +1,31 @@
+{
+ "code": "BS52Y9",
+ "title": "ازمون از سیناپس تا سر مغز گوسفند",
+ "teacher_name": "user1349043014",
+ "created": 1789860977,
+ "duration": 60,
+ "negative": "third",
+ "attempts": 1,
+ "notify": true,
+ "access": "link",
+ "modes": {
+  "text": true,
+  "app": true,
+  "web": true
+ },
+ "window": {
+  "start": null,
+  "end": null
+ },
+ "questions": [
+  {
+   "t": "📸 با دقت به عکس سوال نگاه کن و گزینه‌ی درست را انتخاب کن.",
+   "o": [],
+   "p": 1,
+   "img": "https://mrshash1.github.io/exam-bot/photos/BS52Y9/6aaf1cf8-0e3239fe.jpg",
+   "n_opts": 4
+  }
+ ],
+ "status": "active",
+ "bot_username": "mykonkuriexam2bot"
+}
